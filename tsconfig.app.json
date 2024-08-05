@@ -21,7 +21,13 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Compatibility for CommonJS modules */
+    "esModuleInterop": true,
+
+    /* Optional: Explicitly include types */
+    "types": ["file-saver"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
 }

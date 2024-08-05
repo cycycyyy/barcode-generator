@@ -14,17 +14,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast, Toaster } from "@/components/ui/toast";
 import { ref, watch, h, onMounted } from "vue";
 import JsBarcode from "jsbarcode";
-import { TriangleAlert } from "lucide-vue-next";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+import { TriangleAlert, FolderSync } from "lucide-vue-next";
 
-const barcodeType = ref<string | null>("");
+const barcodeType = ref<string | null>("CODE128");
 const isGenerateBarcodeForEachLine = ref(false);
-const isEvaluateEscapeSequences = ref(true);
+// const isEvaluateEscapeSequences = ref(true);
 const { toast } = useToast();
 const dataEntered = ref("");
 const dataToBeGenerated = ref();
 const whitespaceAppeared = ref(false);
 const isGenerateBarcodeForEachLineVisible = ref(false);
 const isEvaluateEscapeSequencesVisible = ref(false);
+const fileTypeChoice = ref("png");
 
 const stringToArray = (str: string) => {
   return str.split("\n");
@@ -33,7 +36,7 @@ const stringToArray = (str: string) => {
 const generateBarcode = () => {
   if (barcodeType.value) {
     if (dataEntered.value) {
-      console.log("Data to be generated: ", dataToBeGenerated.value);
+      exportMultipleBarcodesAsZip();
     } else {
       toast({
         title: "Oops!",
@@ -115,16 +118,105 @@ watch(isGenerateBarcodeForEachLine, (newValue) => {
 });
 
 const previewBarcode = (str: string) => {
-  const options = {
-    format: "CODE128",
-    width: 2,
-    height: 100,
-    displayValue: true,
-    font: "arial",
-  };
+  try {
+    const options = {
+      format: String(barcodeType.value),
+      width: 2,
+      height: 100,
+      displayValue: true,
+      font: "arial",
+    };
 
-  // Preview the barcode
-  JsBarcode("#barcode", str, options);
+    // Preview the barcode
+    JsBarcode("#barcode", str, options);
+  } catch (error) {
+    toast({
+      title: `${error}`,
+      variant: "destructive",
+    });
+  }
+};
+const exportMultipleBarcodesAsZip = async () => {
+  const zip = new JSZip();
+  const barcodeDataArray = ref<string[]>([]);
+
+  if (isGenerateBarcodeForEachLine.value) {
+    barcodeDataArray.value = stringToArray(dataEntered.value);
+  } else {
+    barcodeDataArray.value.push(dataEntered.value);
+  }
+
+  for (let i = 0; i < barcodeDataArray.value.length; i++) {
+    console.log("Generating barcode data for: ", barcodeDataArray.value[i]);
+    const svgElement = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg"
+    ); // Use createElementNS for SVG elements
+    const options = {
+      format: String(barcodeType.value),
+      width: 2,
+      height: 100,
+      displayValue: true,
+      font: "arial",
+    };
+
+    JsBarcode(svgElement, barcodeDataArray.value[i], options);
+
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svgElement);
+
+    // Clean up the SVG string to remove duplicate xmlns attributes
+    svgString = cleanSVG(svgString);
+
+    if (fileTypeChoice.value === "png") {
+      // Convert SVG string to PNG blob
+      const pngBlob = await convertSvgToPngBlob(svgString);
+      zip.file(`${barcodeDataArray.value[i]}.png`, pngBlob);
+    } else {
+      zip.file(`${barcodeDataArray.value[i]}.svg`, svgString);
+    }
+  }
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  saveAs(blob, "barcodes.zip");
+};
+
+// Function to convert SVG string to PNG blob
+const convertSvgToPngBlob = (svgString: string): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const svgImage = new Image();
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    svgImage.onload = () => {
+      canvas.width = svgImage.width;
+      canvas.height = svgImage.height;
+      context?.drawImage(svgImage, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("Conversion to PNG failed."));
+        }
+      });
+    };
+
+    svgImage.onerror = (error) => reject(error);
+    svgImage.src =
+      "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgString);
+  });
+};
+
+// Function to clean up the SVG string
+const cleanSVG = (svgString: string) => {
+  // Remove duplicate xmlns attributes
+  const cleanedSVG = svgString.replace(
+    /xmlns="http:\/\/www.w3.org\/2000\/svg"\s*/g,
+    ""
+  );
+
+  // Add a single xmlns attribute at the beginning
+  return cleanedSVG.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
 };
 </script>
 
@@ -132,7 +224,7 @@ const previewBarcode = (str: string) => {
   <Toaster />
   <div class="h-screen w-full px-5 py-5">
     <div class="max-w-2xl mx-auto h-full">
-      <span class="font-bold text-3xl text-center">Barcode Generator</span>
+      <span class="font-bold text-3xl text-center">Barcode Generator v1.0</span>
 
       <!-- Barcode Preview -->
       <div class="w-full flex justify-center h-[20vh] items-center flex-col">
@@ -149,23 +241,36 @@ const previewBarcode = (str: string) => {
 
         <Select v-model="barcodeType">
           <SelectTrigger class="w-[180px]">
-            <SelectValue placeholder="Choose a barcode type" />
+            <SelectValue placeholder="Barcode Type" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Type</SelectLabel>
-              <SelectItem value="code-128"> Code 128 </SelectItem>
+              <SelectItem value="CODE128"> Code 128 </SelectItem>
+              <SelectItem value="EAN13"> EAN-13 </SelectItem>
+              <SelectItem value="UPC"> UPC </SelectItem>
+              <SelectItem value="EAN8"> EAN-8 </SelectItem>
+              <SelectItem value="EAN5"> EAN-5 </SelectItem>
+              <SelectItem value="EAN2"> EAN-2 </SelectItem>
+              <SelectItem value="CODE39"> CODE39 </SelectItem>
+              <SelectItem value="ITF14"> ITF14 </SelectItem>
+              <SelectItem value="MSI"> MSI </SelectItem>
+              <SelectItem value="MSI10"> MSI-10 </SelectItem>
+              <SelectItem value="MSI11"> MSI-11 </SelectItem>
+              <SelectItem value="MSI1010"> MSI-1010 </SelectItem>
+              <SelectItem value="MSI1110"> MSI-1110 </SelectItem>
+              <SelectItem value="pharmacode"> Pharmacode </SelectItem>
+              <SelectItem value="codabar"> Codabar </SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
 
         <div class="flex justify-between items-center">
-          <span class="font-bold py-3">Enter your data below:</span>
+          <span class="font-bold">Enter your data below:</span>
           <Button
-            class="text-xs bg-destructive font-white"
-            v-if="whitespaceAppeared"
+            class="flex items-center gap-2 justify-center text-xs font-white"
             @click="removeWhitespace"
-            >Trim Whitespace</Button
+            ><FolderSync class="size-4"/> <span>Refresh</span></Button
           >
         </div>
 
@@ -185,7 +290,7 @@ const previewBarcode = (str: string) => {
               Generate a barcode for each line
             </label>
           </div>
-          <div class="flex items-center space-x-2">
+          <!-- <div class="flex items-center space-x-2">
             <Checkbox
               id="evaluate-escape-sequences"
               v-model:checked="isEvaluateEscapeSequences"
@@ -200,8 +305,22 @@ const previewBarcode = (str: string) => {
             <span class="text-sm text-gray-500"
               >Ex. \F for FNC1, \t for TAB, \n for ENTER</span
             >
-          </div>
+          </div> -->
         </div>
+        <span class="font-bold">Choose a file type:</span>
+
+        <Select v-model="fileTypeChoice">
+          <SelectTrigger class="w-[180px]">
+            <SelectValue placeholder="File Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Type</SelectLabel>
+              <SelectItem value="png"> PNG </SelectItem>
+              <SelectItem value="svg"> SVG </SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
 
         <Button class="h-12 text-lg" @click="generateBarcode">Generate</Button>
       </div>

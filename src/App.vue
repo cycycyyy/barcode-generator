@@ -53,13 +53,13 @@ const generateBarcode = () => {
   }
 };
 
-const removeWhitespace = (str: string) => {
+/* const removeWhitespace = (str: string) => {
   // Define a regular expression to match whitespace excluding line breaks (\r and \n)
   const regex = /[ \t]+(?=[^\r\n]*[\r\n]|$)/g;
 
   // Replace matching whitespace with an empty string
   dataEntered.value = str.replace(regex, "");
-};
+}; */
 
 const checkIfThereIsWhitespace = (str: string) => {
   return /[ \t]/.test(str);

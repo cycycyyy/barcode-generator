@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "./components/ui/button";
+import { Textarea } from "./components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -9,16 +9,16 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useToast, Toaster } from "@/components/ui/toast";
-import { ref, watch, h, onMounted } from "vue";
+} from "./components/ui/select";
+import { Checkbox } from "./components/ui/checkbox";
+import { useToast, Toaster } from "./components/ui/toast";
+import { ref, watch } from "vue";
 import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { TriangleAlert, FolderSync } from "lucide-vue-next";
 
-const barcodeType = ref<string | null>("CODE128");
+const barcodeType = ref<string | undefined>("CODE128");
 const isGenerateBarcodeForEachLine = ref(false);
 // const isEvaluateEscapeSequences = ref(true);
 const { toast } = useToast();

@@ -65,6 +65,40 @@ const checkIfThereIsWhitespace = (str: string) => {
   return /[ \t]/.test(str);
 };
 
+const refreshPreview = () => {
+  isGenerateBarcodeForEachLineVisible.value = true;
+  isEvaluateEscapeSequencesVisible.value = true;
+  if (checkIfThereIsWhitespace(dataEntered.value)) {
+    toast({
+      title: "Oops!",
+      description: "There is a whitespace in the data entered.",
+      variant: "destructive",
+    });
+
+    whitespaceAppeared.value = true;
+  } else {
+    whitespaceAppeared.value = false;
+  }
+
+  if (isGenerateBarcodeForEachLine.value) {
+    dataToBeGenerated.value = stringToArray(dataEntered.value);
+    previewBarcode(dataToBeGenerated.value[0]);
+  } else {
+    dataToBeGenerated.value = dataEntered.value;
+    previewBarcode(dataToBeGenerated.value);
+  }
+
+  if (!dataEntered.value) {
+    isGenerateBarcodeForEachLineVisible.value = false;
+    isEvaluateEscapeSequencesVisible.value = false;
+    toast({
+      title: "Oops!",
+      description: "Please enter atleast one character.",
+      variant: "destructive",
+    });
+  }
+};
+
 watch(dataEntered, (newValue) => {
   if (newValue) {
     isGenerateBarcodeForEachLineVisible.value = true;
@@ -269,8 +303,8 @@ const cleanSVG = (svgString: string) => {
           <span class="font-bold">Enter your data below:</span>
           <Button
             class="flex items-center gap-2 justify-center text-xs font-white"
-            @click="removeWhitespace"
-            ><FolderSync class="size-4"/> <span>Refresh</span></Button
+            @click="refreshPreview"
+            ><FolderSync class="size-4" /> <span>Refresh</span></Button
           >
         </div>
 

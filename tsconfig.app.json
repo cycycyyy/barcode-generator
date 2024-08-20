@@ -23,6 +23,13 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
+
     /* Compatibility for CommonJS modules */
     "esModuleInterop": true,
 

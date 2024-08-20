@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Button } from "./components/ui/button";
-import { Textarea } from "./components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -9,9 +9,10 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "./components/ui/select";
-import { Checkbox } from "./components/ui/checkbox";
-import { useToast, Toaster } from "./components/ui/toast";
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast, Toaster } from "@/components/ui/toast";
+import { Input } from "@/components/ui/input";
 import { ref, watch } from "vue";
 import JsBarcode from "jsbarcode";
 import JSZip from "jszip";
@@ -28,6 +29,7 @@ const whitespaceAppeared = ref(false);
 const isGenerateBarcodeForEachLineVisible = ref(false);
 const isEvaluateEscapeSequencesVisible = ref(false);
 const fileTypeChoice = ref("png");
+const dpi = ref(96);
 
 const stringToArray = (str: string) => {
   return str.split("\n");
@@ -36,7 +38,18 @@ const stringToArray = (str: string) => {
 const generateBarcode = () => {
   if (barcodeType.value) {
     if (dataEntered.value) {
-      exportMultipleBarcodesAsZip();
+      console.log(fileTypeChoice.value, dpi.value);
+      if (fileTypeChoice.value === "png" && dpi.value >= 96) {
+        exportMultipleBarcodesAsZip();
+      } else if (fileTypeChoice.value === "svg") {
+        exportMultipleBarcodesAsZip();
+      } else {
+        toast({
+          title: "Oops!",
+          description: "Please enter your desired DPI. Minimum of 96 DPI.",
+          variant: "destructive",
+        });
+      }
     } else {
       toast({
         title: "Oops!",
@@ -223,16 +236,29 @@ const convertSvgToPngBlob = (svgString: string): Promise<Blob> => {
     const context = canvas.getContext("2d");
 
     svgImage.onload = () => {
-      canvas.width = svgImage.width;
-      canvas.height = svgImage.height;
-      context?.drawImage(svgImage, 0, 0);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob);
-        } else {
-          reject(new Error("Conversion to PNG failed."));
-        }
-      });
+      // Calculate the canvas size based on DPI
+      const scaleFactor = dpi.value / 96; // 96 DPI is the default for most browsers
+      const width = svgImage.width * scaleFactor;
+      const height = svgImage.height * scaleFactor;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      if (context) {
+        // Adjust the scaling for DPI
+        context.scale(scaleFactor, scaleFactor);
+        context.drawImage(svgImage, 0, 0);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Conversion to PNG failed."));
+          }
+        });
+      } else {
+        reject(new Error("Failed to get canvas context."));
+      }
     };
 
     svgImage.onerror = (error) => reject(error);
@@ -256,7 +282,7 @@ const cleanSVG = (svgString: string) => {
 
 <template>
   <Toaster />
-  <div class="h-screen w-full px-5 py-5">
+  <div class="w-full px-5 py-5">
     <div class="max-w-2xl mx-auto h-full">
       <span class="font-bold text-3xl text-center">Barcode Generator v1.0</span>
 
@@ -355,6 +381,9 @@ const cleanSVG = (svgString: string) => {
             </SelectGroup>
           </SelectContent>
         </Select>
+
+        <span class="font-bold" v-if="fileTypeChoice === 'png'">Set DPI:</span>
+        <Input v-model="dpi" v-if="fileTypeChoice === 'png'" type="number" />
 
         <Button class="h-12 text-lg" @click="generateBarcode">Generate</Button>
       </div>
